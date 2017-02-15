@@ -1,0 +1,23 @@
+.top-panel {
+     -fx-padding: 15px, 12px, 15px, 12px;
+     -fx-spacing: 10;
+     -fx-background-color: #a05be5;
+ }
+
+.bottom-panel {
+    -fx-padding: 15px, 12px, 15px, 12px;
+    -fx-spacing: 10;
+    -fx-background-color: #a05be5;
+}
+
+Button {
+    -fx-pref-width: 100;
+    -fx-pref-height: 18;
+}
+
+Text {
+    -fx-font-family: "Arial", sans-serif;
+    -fx-font-size: 1.5em;
+    -fx-font-weight: 700;
+    -fx-fill: #0008ff;
+}
