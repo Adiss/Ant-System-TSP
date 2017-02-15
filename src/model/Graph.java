@@ -24,10 +24,12 @@ public enum Graph {
                 .collect(Collectors.toList());
     }
 
-    public Optional<Arc> getArc(Node n1, Node n2){
-        return arcs.stream()
+    public Arc getArc(Node n1, Node n2){
+        Arc temp = arcs.stream()
                 .filter(arc -> arc.getNode1().equals(n1) && arc.getNode2().equals(n2) || arc.getNode2().equals(n1) && arc.getNode1().equals(n2))
-                .findFirst();
+                .findFirst()
+                .get();
+        return temp.getNode1().equals(n1) ? temp : new Arc(n1, temp.getNode1());
     }
 
     public void addNode(Node node){

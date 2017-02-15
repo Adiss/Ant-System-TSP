@@ -20,6 +20,7 @@ public class Ant extends Circle {
     private double cost = 0;
 
     public Ant(Node startNode) {
+        antCounter++;
         this.currentNode = startNode;
         this.solution = new ArrayList<Node>(){{add(startNode);}};
         this.setCenterX(startNode.getCenterX());
@@ -38,6 +39,39 @@ public class Ant extends Circle {
         * Ha a beta = 0, akkor csak a feromonok működnek heurisztika nélkül.
         * Ez átalánosan rosszabb minődégű utakhoz vezet.
         * */
+        double beta = 2;
+
+        double divider = Graph.INSTANCE.getAvailableArcs(currentNode, solution).stream()
+                            .mapToDouble(arc -> Math.pow(arc.getPheromone(), alpha) * Math.pow(1/arc.getCost(), beta))
+                            .sum();
+
+        if(solution.size() % Graph.INSTANCE.getAllNodes().size() != 0){
+            cost = 0;
+
+            Arc nextArc = Graph.INSTANCE.getAvailableArcs(currentNode, solution).stream()
+                            .max((arc1, arc2) -> Double.compare(countProbability(arc1, alpha, beta, divider), countProbability(arc2, alpha, beta, divider)))
+                            .get();
+
+            this.currentNode = nextArc.getNode1().equals(currentNode) ? nextArc.getNode2() : nextArc.getNode1();
+            this.solution.add(currentNode);
+
+        } else {
+            this.currentNode = solution.get(0);
+            solution.add(currentNode);
+            antPheromoneUpdate();
+            for(int i = 0; i < solution.size() - 1; i++){
+                cost += Graph.INSTANCE.getArc(solution.get(i), solution.get(i+1)).getCost();
+            }
+            this.solution = new ArrayList<Node>(){{add(solution.get(0));}};
+        }
+
+    }
+
+    /*
+    public void moveAnt(){
+
+        double alpha = 1;
+
         double beta = 2;
 
         double probability = Double.MIN_VALUE;
@@ -65,25 +99,30 @@ public class Ant extends Circle {
             this.solution.add(next);
 
         } else {
+            this.currentNode = solution.get(0);
+            solution.add(currentNode);
             antPheromoneUpdate();
             for(int i = 0; i < solution.size() - 1; i++){
                 cost += Graph.INSTANCE.getArc(solution.get(i), solution.get(i+1)).get().getCost();
             }
-            //System.out.println("SOLUTION: " + solution + ", COST: " + cost);
-            this.currentNode = solution.get(0);
             this.solution = new ArrayList<Node>(){{add(solution.get(0));}};
         }
 
     }
+    */
 
     public void antPheromoneUpdate(){
         double divider = 0;
         for(int i = 0; i < solution.size() - 1; i++){
-            divider += Graph.INSTANCE.getArc(solution.get(i), solution.get(i+1)).get().getCost();
+            divider += Graph.INSTANCE.getArc(solution.get(i), solution.get(i+1)).getCost();
         }
         for(int i = 0; i < solution.size() - 1; i++){
-            Graph.INSTANCE.getArc(solution.get(i), solution.get(i+1)).get().addPheromone(1/divider);
+            Graph.INSTANCE.getArc(solution.get(i), solution.get(i+1)).addPheromone(1/divider);
         }
+    }
+
+    private double countProbability(Arc arc, double alpha, double beta, double divider){
+        return (Math.pow(arc.getPheromone(), alpha) * Math.pow(1/arc.getCost(), beta)) / divider;
     }
 
     public List<Node> getSolution() {

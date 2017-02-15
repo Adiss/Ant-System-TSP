@@ -10,7 +10,6 @@ import javafx.scene.control.Button;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
@@ -24,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 /**
  * Simple ant colony optimization for the Traveling salesman problem.
@@ -36,12 +36,17 @@ public class Main extends Application {
     private int winHeight = 600;
     private AnchorPane root;
     private Text numberCities;
+    private Text numberBestTour;
     private List<Ant> ants = new ArrayList<>();
     private Random rand = new Random();
 
     private int antsInBoard = 10;
     private int iterationCounter = 0;
-    private int antSpeed = 600;
+    private int antSpeed = 100;
+
+    private Timeline animation;
+    private List<Arc> bestTour = new ArrayList<>();
+    private double bestTourLength = Double.MAX_VALUE;
 
     /**
      * @param args the command line arguments
@@ -70,7 +75,7 @@ public class Main extends Application {
         Scene scene = new Scene(window, winWidth, winHeight);
         scene.setOnMousePressed(event -> addNode(event.getSceneX(), event.getSceneY() - 51));
 
-        primaryStage.setTitle("javafx");
+        primaryStage.setTitle("Ant System for Traveling Salesman Problem");
         primaryStage.setScene(scene);
         primaryStage.show();
     }
@@ -80,7 +85,10 @@ public class Main extends Application {
 
         for(Arc arc : Graph.INSTANCE.getAllArcs()){
             Line line = new Line(arc.getNode1().getCenterX(), arc.getNode1().getCenterY(), arc.getNode2().getCenterX(), arc.getNode2().getCenterY());
-            if(arc.getPheromone() < 0.002) line.setOpacity(0.2);
+            line.setOpacity(0.2);
+            if(arc.getPheromone() > 0.0015){
+                line.setOpacity(1);
+            }
             root.getChildren().add(line);
         }
         for(Node n : Graph.INSTANCE.getAllNodes()){
@@ -102,54 +110,78 @@ public class Main extends Application {
     private void clearBoard(){
         root.getChildren().clear();
         Graph.INSTANCE.clearGraph();
+        ants = new ArrayList<>();
         numberCities.setText("0");
     }
 
     private HBox createBottomPanel(){
         HBox bottomPanel = new HBox();
-        Button bClearBoard = new Button("Clear");
-        Button bStart = new Button("Start");
-        Button bAddAnts = new Button("Add Ants");
-        Button bStop = new Button("Stop");
+        bottomPanel.getStyleClass().add("bottom-panel");
 
+        Button bClearBoard = new Button("Clear");
         bClearBoard.setOnMouseClicked(event -> clearBoard());
 
-        bAddAnts.setOnMouseClicked(event -> {
-            for(int i = 0; i < antsInBoard; i++)
-                ants.add(new Ant(Graph.INSTANCE.getAllNodes().get(rand.nextInt(Graph.INSTANCE.getAllNodes().size()))));
-        });
+        Button bStart = new Button("Start");
+        bStart.setOnMouseClicked(event -> startAnimation());
 
-        bStart.setOnMouseClicked(event -> {
-            Graph.INSTANCE.initializePheromonesOnArcs(antsInBoard);
-            drawAnts(ants);
-            Timeline timeline = new Timeline(new KeyFrame(Duration.millis(antSpeed), ev -> {
-                if(iterationCounter % Graph.INSTANCE.getAllNodes().size() == 0) {
-                    Graph.INSTANCE.evaporatePheromone();
-                    System.out.println("A TALALT UT: " +  ants.stream().min(Comparator.comparing(Ant::getCost)).get().getCost());
-                }
-                moveAnts(ants);
-                iterationCounter++;
-            }));
-            timeline.setCycleCount(Animation.INDEFINITE);
-            timeline.play();
-        });
+        Button bAddAnts = new Button("Add Ants");
+        bAddAnts.setOnMouseClicked(event -> addAnts());
 
-        bottomPanel.getStyleClass().add("bottom-panel");
-        bottomPanel.getChildren().addAll(bClearBoard, bAddAnts, bStart);
+        Button bStop = new Button("Stop");
+        bStop.setOnMouseClicked(event -> animation.stop());
+
+        bottomPanel.getChildren().addAll(bClearBoard, bAddAnts, bStart, bStop);
 
         return bottomPanel;
     }
 
     private HBox createTopPanel(){
         HBox topPanel = new HBox();
+        topPanel.getStyleClass().add("top-panel");
 
         Text cities = new Text("Cities: ");
         numberCities = new Text("0");
 
-        topPanel.getStyleClass().add("top-panel");
-        topPanel.getChildren().addAll(cities, numberCities);
+        Text bestTour = new Text("Best Tour: ");
+        numberBestTour = new Text("No tour yet.");
+
+        topPanel.getChildren().addAll(cities, numberCities, bestTour, numberBestTour);
 
         return topPanel;
+    }
+
+    public void storeBestTour(){
+        Ant bestAnt = ants.stream()
+                .min(Comparator.comparing(Ant::getCost))
+                .get();
+        List<Node> bestNodes = bestAnt.getSolution();
+
+        if(bestAnt.getCost() < bestTourLength){
+            bestTour = new ArrayList<>();
+            bestTourLength = bestAnt.getCost();
+            for(int i = 0; i < bestNodes.size() - 1; i++){
+                bestTour.add(Graph.INSTANCE.getArc(bestNodes.get(i), bestNodes.get(i+1)));
+            }
+        }
+    }
+
+    private void addAnts(){
+        for(int i = 0; i < antsInBoard; i++)
+            ants.add(new Ant(Graph.INSTANCE.getAllNodes().get(rand.nextInt(Graph.INSTANCE.getAllNodes().size()))));
+        drawAnts(ants);
+    }
+
+    private void startAnimation(){
+        Graph.INSTANCE.initializePheromonesOnArcs(antsInBoard);
+        animation = new Timeline(new KeyFrame(Duration.millis(antSpeed), ev -> {
+            if(iterationCounter % Graph.INSTANCE.getAllNodes().size() == 0) {
+                Graph.INSTANCE.evaporatePheromone();
+            }
+            moveAnts(ants);
+            iterationCounter++;
+        }));
+        animation.setCycleCount(Animation.INDEFINITE);
+        animation.play();
     }
 
     private void drawAnts(List<Ant> ants){
