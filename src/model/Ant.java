@@ -2,6 +2,7 @@ package model;
 
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import org.omg.PortableInterceptor.SYSTEM_EXCEPTION;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +18,8 @@ public class Ant extends Circle {
 
     private Node currentNode;
     private List<Node> solution;
-    private double cost = 0;
+    private List<Node> previousSolution;
+    private double cost = Double.MAX_VALUE;
 
     public Ant(Node startNode) {
         antCounter++;
@@ -46,7 +48,7 @@ public class Ant extends Circle {
                             .sum();
 
         if(solution.size() % Graph.INSTANCE.getAllNodes().size() != 0){
-            cost = 0;
+            cost = Double.MAX_VALUE;
 
             Arc nextArc = Graph.INSTANCE.getAvailableArcs(currentNode, solution).stream()
                             .max((arc1, arc2) -> Double.compare(countProbability(arc1, alpha, beta, divider), countProbability(arc2, alpha, beta, divider)))
@@ -56,12 +58,14 @@ public class Ant extends Circle {
             this.solution.add(currentNode);
 
         } else {
+            cost = 0;
             this.currentNode = solution.get(0);
             solution.add(currentNode);
             antPheromoneUpdate();
             for(int i = 0; i < solution.size() - 1; i++){
                 cost += Graph.INSTANCE.getArc(solution.get(i), solution.get(i+1)).getCost();
             }
+            this.previousSolution = this.solution;
             this.solution = new ArrayList<Node>(){{add(solution.get(0));}};
         }
 
@@ -127,6 +131,9 @@ public class Ant extends Circle {
 
     public List<Node> getSolution() {
         return solution;
+    }
+    public List<Node> getPreviousSolution() {
+        return previousSolution;
     }
 
     public double getCost() {

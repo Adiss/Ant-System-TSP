@@ -7,9 +7,11 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Slider;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
@@ -23,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 /**
  * Simple ant colony optimization for the Traveling salesman problem.
@@ -40,7 +41,7 @@ public class Main extends Application {
     private List<Ant> ants = new ArrayList<>();
     private Random rand = new Random();
 
-    private int antsInBoard = 10;
+    private int antsInBoard = 0;
     private int iterationCounter = 0;
     private int antSpeed = 100;
 
@@ -86,17 +87,15 @@ public class Main extends Application {
         for(Arc arc : Graph.INSTANCE.getAllArcs()){
             Line line = new Line(arc.getNode1().getCenterX(), arc.getNode1().getCenterY(), arc.getNode2().getCenterX(), arc.getNode2().getCenterY());
             line.setOpacity(0.2);
-            if(arc.getPheromone() > 0.0015){
+            if(bestTour.contains(arc)){
                 line.setOpacity(1);
             }
             root.getChildren().add(line);
         }
         for(Node n : Graph.INSTANCE.getAllNodes()){
-            Text nodeName = new Text(String.valueOf(n.getCenterX()));
-            nodeName.setX(n.getCenterX());
-            nodeName.setY(n.getCenterY());
-            root.getChildren().addAll(n, nodeName);
+            root.getChildren().addAll(n);
         }
+
     }
 
     private void addNode(double x, double y){
@@ -122,15 +121,45 @@ public class Main extends Application {
         bClearBoard.setOnMouseClicked(event -> clearBoard());
 
         Button bStart = new Button("Start");
-        bStart.setOnMouseClicked(event -> startAnimation());
-
-        Button bAddAnts = new Button("Add Ants");
-        bAddAnts.setOnMouseClicked(event -> addAnts());
+        bStart.setOnMouseClicked(event -> {
+            startAnimation();
+            bClearBoard.setDisable(true);
+        });
+        bStart.setDisable(true);
 
         Button bStop = new Button("Stop");
-        bStop.setOnMouseClicked(event -> animation.stop());
+        bStop.setOnMouseClicked(event -> {
+            animation.stop();
+            bClearBoard.setDisable(false);
+        });
 
-        bottomPanel.getChildren().addAll(bClearBoard, bAddAnts, bStart, bStop);
+        Text tHangyaSzam = new Text("Hangyák Száma: ");
+
+        Slider slider = new Slider();
+        slider.setMin(0);
+        slider.setMax(20);
+        slider.setValue(antsInBoard);
+        slider.setShowTickLabels(true);
+        slider.setShowTickMarks(true);
+        slider.setMajorTickUnit(5);
+        slider.setMinorTickCount(1);
+        slider.setBlockIncrement(10);
+
+        slider.valueProperty().addListener((observable, oldValue, newValue) -> {
+            if(antsInBoard > 0) bStart.setDisable(false);
+            antsInBoard = newValue.intValue();
+            if(oldValue.intValue() < newValue.intValue()){
+                for(int i = 0; i < newValue.intValue() - oldValue.intValue(); i++)
+                    addAnt();
+            } else {
+                for(int i = 0; i < oldValue.intValue() - newValue.intValue(); i++)
+                    removeAnts(oldValue.intValue() - newValue.intValue());
+            }
+            reDraw();
+            System.out.println(ants.size());
+        });
+
+        bottomPanel.getChildren().addAll(bClearBoard, bStart, bStop, tHangyaSzam, slider);
 
         return bottomPanel;
     }
@@ -154,21 +183,28 @@ public class Main extends Application {
         Ant bestAnt = ants.stream()
                 .min(Comparator.comparing(Ant::getCost))
                 .get();
-        List<Node> bestNodes = bestAnt.getSolution();
+        List<Node> bestNodes = bestAnt.getPreviousSolution();
 
         if(bestAnt.getCost() < bestTourLength){
             bestTour = new ArrayList<>();
             bestTourLength = bestAnt.getCost();
-            for(int i = 0; i < bestNodes.size() - 1; i++){
+            for(int i = 0; i < bestNodes.size()-1; i++){
                 bestTour.add(Graph.INSTANCE.getArc(bestNodes.get(i), bestNodes.get(i+1)));
             }
         }
+        numberBestTour.setText(String.valueOf(bestTourLength));
     }
 
     private void addAnts(){
         for(int i = 0; i < antsInBoard; i++)
             ants.add(new Ant(Graph.INSTANCE.getAllNodes().get(rand.nextInt(Graph.INSTANCE.getAllNodes().size()))));
-        drawAnts(ants);
+    }
+    private void addAnt(){
+        ants.add(new Ant(Graph.INSTANCE.getAllNodes().get(rand.nextInt(Graph.INSTANCE.getAllNodes().size()))));
+    }
+    private void removeAnts(int number){
+        for(int i = 0; i < number; i++)
+            ants.remove(ants.size()-1);
     }
 
     private void startAnimation(){
@@ -176,6 +212,7 @@ public class Main extends Application {
         animation = new Timeline(new KeyFrame(Duration.millis(antSpeed), ev -> {
             if(iterationCounter % Graph.INSTANCE.getAllNodes().size() == 0) {
                 Graph.INSTANCE.evaporatePheromone();
+                storeBestTour();
             }
             moveAnts(ants);
             iterationCounter++;
@@ -188,6 +225,12 @@ public class Main extends Application {
         for(Ant ant : ants){
             root.getChildren().add(ant);
         }
+    }
+
+    private void reDraw(){
+        root.getChildren().clear();
+        drawGraph();
+        drawAnts(ants);
     }
 
     private void moveAnts(List<Ant> ants){
